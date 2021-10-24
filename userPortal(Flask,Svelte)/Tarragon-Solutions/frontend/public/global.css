@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300&display=swap');
+
+:root{
+	--document-primary-font-family: 'Heebo', sans-serif;
+
+	--document-primary-background-color: #ffffff;
+	--document-secondary-background-color: #5056e6;
+
+	--document-header-text-color: #ffffff;
+
+	--document-header-link-hover-color: #d6d6d6;
+	
+	--document-text-header-color: #5056e6;
+	--document-text-primary-color: #000000;
+
+	--document-form-background-color: #fafcff;
+	--document-form-border-color: #9ab7ff;
+	--document-form-border-radius: 4px;
+	--document-form-header-title-color: #000000;
+	--document-form-header-message-color: #646464;
+
+	--form-input-text-color: #000000;
+	--form-input-unfocused-background-color: #fcfcfd;
+	--form-input-focused-background-color: #ffffff;
+	--form-input-border-color: #cdcfd6;
+	--form-input-border-radius: 2px;
+
+	--form-button-normal-background-color: #5056e6;
+	--form-button-hover-background-color: #494dd3;
+	--form-button-text-color: #ffffff;
+	--form-button-border-radius: 2px;
+
+	--modal-background-color: rgba(0,0,0,50%);
+	--modal-text-color: #ffffff;
+
+	--request-scrollbar-track-background-color: #f3f3f3;
+	--request-scrollbar-thumb-background-color: #ffffff;
+	--request-scrollbar-thumb-border-color: #cdcfd6;
+	--request-scrollbar-border-radius: 2px;
+
+	--error-message-color: #ff0000;
+}
+
+*{
+	padding: 0px;
+	margin: 0px;
+	font-family: var(--document-primary-font-family);
+}
+
+.form-input{
+	min-width: 200px;
+	width: 400px;
+	height: 40px;
+	background-color: var(--form-input-unfocused-background-color);
+	color: var(--form-input-text-color);
+	border: 1px solid var(--form-input-border-color);
+	border-radius: var(--form-input-border-radius);
+	font-size: 14pt;
+	padding: 0px 4px;
+	margin: 6px 0px;
+	transition: background-color 0.4s;
+}
+
+.form-input:hover{
+	background-color: var(--form-input-focused-background-color);
+}
+
+.form-input:focus{
+	outline: none;
+	background-color: var(--form-input-focused-background-color);
+	border: 1px solid var(--form-input-border-color);
+}
+
+.form-button{
+	min-width: 200px;
+	width: 400px;
+	height: 50px;
+	background-color: var(--form-button-normal-background-color);
+	color: var(--form-button-text-color);
+	font-size: 14pt;
+	border: none;
+	border-radius: var(--form-button-border-radius);
+	margin: 6px 0px;
+	transition: background-color 0.4s;
+}
+
+.form-button:hover{
+	background-color: var(--form-button-hover-background-color);
+}
+
+.centered-form{
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: auto;
+	height: auto;
+}
+
+.response-error{
+	font-size: 14pt;
+	text-align: center;
+	color: var(--error-message-color);
+}
+
+@media screen and (max-width: 600px){
+	.form-input{
+		width: auto;
+	}
+
+	.form-button{
+		width: auto;
+	}
+}
