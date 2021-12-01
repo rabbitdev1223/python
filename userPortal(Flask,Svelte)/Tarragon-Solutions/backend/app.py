@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 import hashlib
+from dbconn import Conn
 from datetime import date
 from flask_login import (
     LoginManager,
@@ -11,10 +12,7 @@ from flask_login import (
 )
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 
-import sqlite3
 from flask import g
-
-DATABASE = 'database.db'
 
 app = Flask(__name__, static_folder="public")
 app.config.update(
@@ -24,46 +22,26 @@ app.config.update(
     REMEMBER_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Strict",
 )
-def create_tables():
-    with app.app_context():
-        tables = [
-            """CREATE TABLE IF NOT EXISTS Users(
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT NOT NULL,
-                    password TEXT NOT NULL,
-                    UNIQUE (email)
-                )
-                """,
-            """CREATE TABLE IF NOT EXISTS Datas(
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    date TEXT NOT NULL,
-                    status TEXT NOT NULL
-                )
-                """
-        ]
-        db = get_db()
-        cursor = db.cursor()
-        for table in tables:
-            cursor.execute(table)
 
 def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-    return db
+    
+    conn = Conn()
+    cursor = conn.cursor
+    
+    return conn.conn
 
 def query_db(query, args=(), one=False):
-    cur = get_db().execute(query, args)
-    rv = cur.fetchall()
-    cur.close()
+    conn = Conn()
+    cursor = conn.cursor
+
+    cursor.execute(query, args)
+    rv = cursor.fetchall()
+    cursor.close()
     return (rv[0] if rv else None) if one else rv
 
 @app.teardown_appcontext
 def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+    pass
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -77,7 +55,7 @@ class User(UserMixin):
     ...
 
 def get_user(user_id: int):
-    user = query_db('select * from Users where id = ?',
+    user = query_db('select * from Users where id = %s',
                 [user_id], one=True)
     return user
 
@@ -86,8 +64,9 @@ def get_user(user_id: int):
 def user_loader(id: int):
     user = get_user(id)
     if user:
+        print('ok login')
         user_model = User()
-        user_model.id = user[0]
+        user_model.id = user[0] #[0] means id
         
         return user_model
     return None
@@ -113,23 +92,38 @@ def login():
 
     hashPassword = hashlib.md5(password.encode()).hexdigest()
 
-    user = query_db('select * from Users where email = ? and password = ?',
-                [email,hashPassword], one=True)
-    
-    if user is not None:
-        user_model = User()
-        user_model.id = user[0]
-        login_user(user_model)
+    conn = Conn()
+    cursor = conn.cursor
+    cursor.execute('select * from Users where email = %s and password = %s',
+                [email,hashPassword], multi=False)
+    try:
+        user = cursor.fetchone()
+        if user is not None:
+            user_model = User()
+            user_model.id = user[0] #[0] means  id
+            login_user(user_model)
 
-        response = {
-            "status":"ok",
-            
-        }    
-    else:
-        response = {
-            "status":"error",
-            "message":"invalid-login-request",
-        }
+            response = {
+                "status":"ok",
+            }
+        else:
+            response = {
+                "status":"error",
+                "message":"invalid-login-request",
+            }    
+    except mysql.connector.errors.InterfaceError as ie:
+        
+        raise
+    
+    cursor.close()
+    return jsonify(response)
+
+@app.route("/api/jsonfromexcel", methods=["POST"])
+def jsonfromexcel():
+    data = request.json
+    print(data)
+    
+    response = {'status': 'ok'}
     return jsonify(response)
 
 @app.route("/api/update", methods=["POST"])
@@ -147,13 +141,13 @@ def update():
         return jsonify({"error": 1, "message": "Old password incorrect!"})
     
     try:
-        db = get_db()
-        cursor = db.cursor()
+        conn = Conn()
+        cursor = conn.cursor
         cursor.execute("UPDATE Users SET password= ? WHERE id = ?",(hashNewPassword,current_user.id))   
-        db.commit() 
+        conn.conn.commit() 
         return jsonify({"error":0,"message": "Success to update"})
-    except sqlite3.Error as error:
-        db.rollback()
+    except mysql.connector.errors.InterfaceError as ie:
+        conn.conn.commit() 
         return jsonify({"error":2,"message": "Failed to update"})
 
 
@@ -162,23 +156,19 @@ def upload():
     data = request.json
     content = data.get("name")
     try:
-        db = get_db()
-        cursor = db.cursor()
+        conn = Conn()
+        cursor = conn.cursor()
         currentdate = date.today()
         cursor.execute("INSERT into Datas ( name,date,status) values (?,?,?)",(content,currentdate,"success"))   
-        db.commit() 
+        conn.conn.commit() 
         return jsonify({"status":"ok"})
-    except sqlite3.Error as error:
-        db.rollback()
+    except mysql.connector.errors.InterfaceError as ie:
+        conn.conn.rollback()
         return jsonify({"status":"error","message": "Failed to upload"})
 
 @app.route("/api/datalist", methods=["POST"])
 def uploadList():
-    try:
-        data = query_db('select * from Datas ')
-        return jsonify({"status":"ok","data":data})
-    except sqlite3.Error as error:
-        return jsonify({"status":"error","message": "Failed to get list"})
+    pass
   
 
 @app.route("/api/signup", methods=["POST"])
@@ -189,19 +179,21 @@ def register():
 
     hashPassword = hashlib.md5(password.encode()).hexdigest()
 
-    user = query_db('select * from Users where email = ?',
-                [email], one=True)
+    conn = Conn()
+    cursor = conn.cursor
+    cursor.execute('select * from Users where email = %s',
+                [email], multi=False)
+    user = cursor.fetchone()
     if user is not None:
         return jsonify({"status":"error","message": "User already exists"})
     
     try:
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute("INSERT into Users (email, password) values (?,?)",(email,hashPassword))   
-        db.commit() 
+
+        cursor.execute("INSERT into Users (email, password) values (%s,%s)",(email,hashPassword))   
+        conn.conn.commit() 
         return jsonify({"status":"ok"})
-    except sqlite3.Error as error:
-        db.rollback()
+    except mysql.connector.errors.InterfaceError as error:
+        conn.conn.rollback()
         return jsonify({"status":"error","message": "Failed to register"})
  
 
@@ -231,5 +223,5 @@ def logout():
 
 
 if __name__ == "__main__":
-    create_tables()
+    #create_tables()
     app.run(debug=True, host="0.0.0.0")

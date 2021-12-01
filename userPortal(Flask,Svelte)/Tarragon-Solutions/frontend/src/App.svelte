@@ -75,7 +75,7 @@
       .then((res) => {
         csrfToken.set(res.headers.get(["X-CSRFToken"]));
         // console.log(csrfToken);
-		console.log($csrfToken);
+		// console.log($csrfToken);
 		
       })
       .catch((err) => {
